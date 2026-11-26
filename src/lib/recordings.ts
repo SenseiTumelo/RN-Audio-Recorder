@@ -7,6 +7,7 @@ export type VoiceNote = {
   fileName: string;
   durationMs: number;
   createdAt: string;
+  waveform?: number[]; // loudness of the recording, for the sound bars
 };
 
 const STORAGE_KEY = "voice-notes";
@@ -29,7 +30,8 @@ async function saveNotes(notes: VoiceNote[]) {
 
 export async function addNote(
   tempUri: string,
-  durationMs: number
+  durationMs: number,
+  waveform: number[] 
 ): Promise<VoiceNote> {
   const recordingsDir = getRecordingsDir(); // CHANGED: created here, when needed
 
@@ -43,13 +45,14 @@ export async function addNote(
   const tempFile = new File(tempUri);
   tempFile.move(new File(recordingsDir, fileName));
 
-  const note: VoiceNote = {
-    id,
-    name: `Voice note ${new Date().toLocaleString()}`,
-    fileName,
-    durationMs,
-    createdAt: new Date().toISOString(),
-  };
+const note: VoiceNote = {
+  id,
+  name: `Voice note ${new Date().toLocaleString()}`,
+  fileName,
+  durationMs,
+  createdAt: new Date().toISOString(),
+  waveform, 
+};
 
   const notes = await loadNotes();
   await saveNotes([note, ...notes]);
