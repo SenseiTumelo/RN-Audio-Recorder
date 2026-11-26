@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Text } from "@/lib/AppText";
+import MotionIcon, { Motion } from "../lib/MotionIcon";
 import {
   FlatList,
   NativeScrollEvent,
@@ -23,6 +24,7 @@ type Slide = {
   title: string;
   text: string;
   showLogo?: boolean;
+  motion: Motion;
 };
 
 const SLIDES: Slide[] = [
@@ -31,25 +33,28 @@ const SLIDES: Slide[] = [
     icon: "mic",
     title: "Welcome to Voice Journal",
     text: "Your personal space to capture thoughts, ideas and memories with your voice.",
-    showLogo: true,
+    showLogo: true,motion: "float",
   },
   {
     id: "record",
     icon: "radio-button-on",
     title: "Record in one tap",
     text: "Tap the round microphone button to start recording. Tap it again to stop. Your note is saved automatically.",
+    motion: "ripple",
   },
   {
     id: "play",
     icon: "play",
     title: "Play it back your way",
     text: "Tap any note to play it. Pause, skip 10 seconds back or forward, and change the speed.",
+    motion: "pulse",
   },
   {
     id: "organise",
     icon: "search",
     title: "Keep it organised",
     text: "Use the pencil to rename a note, the bin to delete it, and the search box to find a note by name. Everything works offline.",
+    motion: "wiggle",
   },
 ];
 
@@ -105,19 +110,26 @@ export default function Welcome() {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onScrollEnd}
-renderItem={({ item }) => (
+extraData={index}
+renderItem={({ item, index: position }) => (
   <View style={[styles.slide, { width }]}>
-    {item.showLogo ? (
-      <Image
-        source={require("../../assets/logo.png")}
-        style={styles.logo}
-        resizeMode="contain"
-      />
-    ) : (
-      <View style={styles.iconCircle}>
-        <Ionicons name={item.icon} size={64} color="white" />
-      </View>
-    )}
+    <MotionIcon
+      motion={item.motion}
+      active={position === index}
+      size={item.showLogo ? 160 : 140}
+    >
+      {item.showLogo ? (
+        <Image
+          source={require("../../assets/logo.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      ) : (
+        <View style={styles.iconCircle}>
+          <Ionicons name={item.icon} size={64} color="white" />
+        </View>
+      )}
+    </MotionIcon>
     <Text style={styles.title}>{item.title}</Text>
     <Text style={styles.text}>{item.text}</Text>
   </View>
