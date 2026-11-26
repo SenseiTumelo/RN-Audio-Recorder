@@ -3,9 +3,11 @@ import {
   Alert,
   FlatList,
   Linking,
+  Modal, // NEW
   Pressable,
   StyleSheet,
   Text,
+  TextInput, // NEW
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,7 +21,14 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from "expo-audio";
-import { addNote, getNoteUri, loadNotes, VoiceNote } from "../lib/recordings";
+import {
+  addNote,
+  deleteNote, // NEW
+  getNoteUri,
+  loadNotes,
+  renameNote, // NEW
+  VoiceNote,
+} from "../lib/recordings";
 import { formatDate, formatDuration } from "../lib/format";
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
@@ -36,6 +45,10 @@ export default function Index() {
   const [notes, setNotes] = useState<VoiceNote[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [speed, setSpeed] = useState(1);
+
+  // NEW: which note is being renamed, and what is typed in the box
+  const [renameTarget, setRenameTarget] = useState<VoiceNote | null>(null);
+  const [renameText, setRenameText] = useState("");
 
   const activeNote = notes.find((n) => n.id === activeId);
 
@@ -61,7 +74,7 @@ export default function Index() {
 
   // ---------- Recording ----------
   const startRecording = async () => {
-    player.pause(); // never play and record at the same time
+    player.pause();
     await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
     await recorder.prepareToRecordAsync();
     recorder.record();
@@ -70,7 +83,6 @@ export default function Index() {
   const stopRecording = async () => {
     const duration = recorderState.durationMillis;
     await recorder.stop();
-    // Switch back to playback mode so sound comes out of the speaker
     await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
 
     if (recorder.uri) {
@@ -93,7 +105,6 @@ export default function Index() {
       player.pause();
       return;
     }
-    // If the note already reached the end, start again from 0
     if (status.duration > 0 && status.currentTime >= status.duration - 0.1) {
       await player.seekTo(0);
     }
@@ -102,11 +113,11 @@ export default function Index() {
 
   const selectNote = (note: VoiceNote) => {
     if (note.id === activeId) {
-      togglePlay(); // tapping the same note pauses / resumes
+      togglePlay();
       return;
     }
     setActiveId(note.id);
-    player.replace(getNoteUri(note)); // load a different file into the player
+    player.replace(getNoteUri(note));
     player.setPlaybackRate(speed);
     player.play();
   };
@@ -123,6 +134,41 @@ export default function Index() {
   };
 
   const progress = status.duration > 0 ? status.currentTime / status.duration : 0;
+
+  // ---------- NEW: Rename ----------
+  const openRename = (note: VoiceNote) => {
+    setRenameTarget(note);
+    setRenameText(note.name); // start with the current name in the box
+  };
+
+  const saveRename = async () => {
+    const name = renameText.trim(); // remove spaces at the start and end
+    if (!renameTarget || !name) return; // don't allow an empty name
+
+    const updated = await renameNote(renameTarget.id, name);
+    setNotes(updated);
+    setRenameTarget(null); // closes the popup
+  };
+
+  // ---------- NEW: Delete ----------
+  const confirmDelete = (note: VoiceNote) => {
+    Alert.alert("Delete voice note", `Delete "${note.name}"? This can't be undone.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          // If this note is loaded in the player, stop it first
+          if (note.id === activeId) {
+            player.pause();
+            setActiveId(null);
+          }
+          await deleteNote(note);
+          setNotes((current) => current.filter((n) => n.id !== note.id));
+        },
+      },
+    ]);
+  };
 
   // ---------- Screen ----------
   const renderNote = ({ item }: { item: VoiceNote }) => {
@@ -143,9 +189,19 @@ export default function Index() {
           <Text style={styles.noteName} numberOfLines={1}>
             {item.name}
           </Text>
-          <Text style={styles.noteDate}>{formatDate(item.createdAt)}</Text>
+          {/* CHANGED: date and duration now share one line */}
+          <Text style={styles.noteDate}>
+            {formatDate(item.createdAt)} · {formatDuration(item.durationMs)}
+          </Text>
         </View>
-        <Text style={styles.noteDuration}>{formatDuration(item.durationMs)}</Text>
+
+        {/* NEW: rename and delete buttons */}
+        <Pressable onPress={() => openRename(item)} hitSlop={8}>
+          <Ionicons name="pencil" size={20} color="#6b7280" />
+        </Pressable>
+        <Pressable onPress={() => confirmDelete(item)} hitSlop={8}>
+          <Ionicons name="trash-outline" size={20} color="#dc2626" />
+        </Pressable>
       </Pressable>
     );
   };
@@ -164,7 +220,6 @@ export default function Index() {
         }
       />
 
-      {/* Player bar: only shows once a note has been selected */}
       {activeNote && (
         <View style={styles.player}>
           <Text style={styles.playerName} numberOfLines={1}>
@@ -201,7 +256,6 @@ export default function Index() {
         </View>
       )}
 
-      {/* Recorder */}
       <View style={styles.recorder}>
         <Text style={styles.timer}>{formatDuration(recorderState.durationMillis)}</Text>
         <Pressable
@@ -213,6 +267,38 @@ export default function Index() {
           </Text>
         </Pressable>
       </View>
+
+      {/* NEW: the rename popup. It is visible only when renameTarget is set. */}
+      <Modal
+        visible={renameTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRenameTarget(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Rename voice note</Text>
+            <TextInput
+              value={renameText}
+              onChangeText={setRenameText}
+              style={styles.input}
+              autoFocus
+              selectTextOnFocus
+              placeholder="Name"
+              maxLength={60}
+              onSubmitEditing={saveRename}
+            />
+            <View style={styles.modalButtons}>
+              <Pressable onPress={() => setRenameTarget(null)}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={saveRename}>
+                <Text style={styles.saveText}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -235,7 +321,6 @@ const styles = StyleSheet.create({
   rowText: { flex: 1 },
   noteName: { fontSize: 16, fontWeight: "600" },
   noteDate: { fontSize: 13, color: "#6b7280", marginTop: 2 },
-  noteDuration: { fontSize: 14, color: "#374151", fontVariant: ["tabular-nums"] },
 
   player: {
     backgroundColor: "white",
@@ -279,4 +364,29 @@ const styles = StyleSheet.create({
   },
   buttonRecording: { backgroundColor: "#dc2626" },
   buttonText: { color: "white", fontSize: 18, fontWeight: "600" },
+
+  // NEW: rename popup styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 20,
+    gap: 16,
+  },
+  modalTitle: { fontSize: 18, fontWeight: "700" },
+  input: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+  modalButtons: { flexDirection: "row", justifyContent: "flex-end", gap: 24 },
+  cancelText: { fontSize: 16, color: "#6b7280" },
+  saveText: { fontSize: 16, color: "#4f46e5", fontWeight: "700" },
 });
