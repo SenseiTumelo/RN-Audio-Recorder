@@ -25,6 +25,12 @@
     },
     "plugins": [
       "expo-router",
+  [
+    "expo-audio",
+    {
+      "microphonePermission": "Allow Voice Journal to access your microphone to record voice notes."
+    }
+  ],
       [
         "expo-splash-screen",
         {
@@ -32,8 +38,10 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "expo-audio"
     ],
+    
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
