@@ -2,7 +2,7 @@
 export const COLORS = {
   primary: "#000000", // buttons, active borders, icons
   primarySoft: "#f4f4f5", // light grey backgrounds for small buttons
-  danger: "#dc2626", // red, kept only for "recording" and "delete"
+  danger: "#000000", // red, kept only for "recording" and "delete"
   background: "#ffffff",
   card: "#ffffff",
   text: "#000000",

@@ -75,7 +75,9 @@ const [barsWidth, setBarsWidth] = useState(0); // width of the player bars (for 
   const [renameText, setRenameText] = useState("");
   // Delete popup: which note is waiting for confirmation (null = popup closed)
 const [deleteTarget, setDeleteTarget] = useState<VoiceNote | null>(null);
-
+// Feedback & support popup
+const [helpVisible, setHelpVisible] = useState(false);
+const [helpError, setHelpError] = useState(""); // message shown if no email app exists
   const activeNote = notes.find((n) => n.id === activeId);
 
   // The notes whose name contains the search text
@@ -216,25 +218,24 @@ const confirmDelete = async () => {
 };
 
   // ---------- Feedback and support ----------
-  const sendEmail = async (subject: string) => {
-    try {
-      await Linking.openURL(
-        `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`
-      );
-    } catch {
-      // Happens when the phone has no email app set up
-      Alert.alert("No email app found", `You can reach us at ${SUPPORT_EMAIL}.`);
-    }
-  };
+const openHelp = () => {
+  setHelpError(""); // clear any old message
+  setHelpVisible(true);
+};
 
-  const openHelp = () => {
-    Alert.alert("Feedback & support", "Tell us what you think, or ask for help.", [
-      { text: "Send feedback", onPress: () => sendEmail("Voice Journal feedback") },
-      { text: "Get support", onPress: () => sendEmail("Voice Journal support") },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  };
+const closeHelp = () => setHelpVisible(false);
 
+const sendEmail = async (subject: string) => {
+  try {
+    await Linking.openURL(
+      `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`
+    );
+    closeHelp();
+  } catch {
+    // Happens when the phone has no email app set up
+    setHelpError(`No email app found. You can reach us at ${SUPPORT_EMAIL}.`);
+  }
+};
   // ---------- Screen ----------
   const renderNote = ({ item }: { item: VoiceNote }) => {
     const isActive = item.id === activeId;
@@ -405,11 +406,11 @@ const confirmDelete = async () => {
       {/* Recorder */}
       <View style={styles.recorder}>
           <View style={styles.liveBars}>
-    <SoundBars
-      levels={recorderState.isRecording ? liveLevels : IDLE_LEVELS}
-      height={40}
-      activeColor={COLORS.danger}
-    />
+<SoundBars
+  levels={recorderState.isRecording ? liveLevels : IDLE_LEVELS}
+  progress={recorderState.isRecording ? 1 : 0}
+  height={40}
+/>
   </View>
         <Text style={[styles.timer, recorderState.isRecording && styles.timerRecording]}>
           {formatDuration(recorderState.durationMillis)}
@@ -495,6 +496,59 @@ const confirmDelete = async () => {
           <Text style={styles.dialogDeleteText}>Delete</Text>
         </Pressable>
       </View>
+    </View>
+  </View>
+</Modal>
+{/* Feedback & support popup */}
+<Modal
+  visible={helpVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={closeHelp}
+>
+  <View style={styles.modalBackdrop}>
+    <View style={[styles.modalCard, styles.deleteCard]}>
+      <View style={styles.deleteIcon}>
+        <Ionicons name="chatbubble-ellipses-outline" size={28} color={COLORS.primary} />
+      </View>
+
+      <Text style={styles.modalTitle}>Feedback & support</Text>
+      <Text style={styles.modalText}>Tell us what you think, or ask for help.</Text>
+
+      <View style={styles.optionList}>
+        <Pressable
+          onPress={() => sendEmail("Voice Journal feedback")}
+          style={styles.option}
+        >
+          <Ionicons name="chatbox-outline" size={22} color={COLORS.primary} />
+          <View style={styles.optionText}>
+            <Text style={styles.optionTitle}>Send feedback</Text>
+            <Text style={styles.optionHint}>Share an idea or your thoughts</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
+        </Pressable>
+
+        <Pressable
+          onPress={() => sendEmail("Voice Journal support")}
+          style={styles.option}
+        >
+          <Ionicons name="help-buoy-outline" size={22} color={COLORS.primary} />
+          <View style={styles.optionText}>
+            <Text style={styles.optionTitle}>Get support</Text>
+            <Text style={styles.optionHint}>Ask for help with the app</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
+        </Pressable>
+      </View>
+
+      {helpError !== "" && <Text style={styles.helpError}>{helpError}</Text>}
+
+      <Pressable
+        onPress={closeHelp}
+        style={[styles.dialogButton, styles.dialogCancel, styles.closeButton]}
+      >
+        <Text style={styles.dialogCancelText}>Close</Text>
+      </Pressable>
     </View>
   </View>
 </Modal>
@@ -665,6 +719,31 @@ modalText: {
   color: COLORS.muted,
   textAlign: "center",
 },
+// Feedback & support popup
+optionList: { alignSelf: "stretch", gap: 10 },
+option: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 12,
+  padding: 14,
+  borderRadius: 14,
+  borderWidth: 1.5,
+  borderColor: COLORS.border,
+  backgroundColor: COLORS.card,
+},
+optionText: { flex: 1 },
+optionTitle: { fontSize: 16, fontWeight: "600", color: COLORS.text },
+optionHint: { fontSize: 13, color: COLORS.muted, marginTop: 2 },
+helpError: {
+  alignSelf: "stretch",
+  padding: 12,
+  borderRadius: 12,
+  backgroundColor: COLORS.primarySoft,
+  color: COLORS.text,
+  fontSize: 14,
+  textAlign: "center",
+},
+closeButton: { flex: 0, alignSelf: "stretch" },
 dialogButtons: { flexDirection: "row", gap: 12, alignSelf: "stretch" },
 dialogButton: {
   flex: 1,
