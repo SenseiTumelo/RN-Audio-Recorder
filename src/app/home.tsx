@@ -58,6 +58,8 @@ export default function Home() {
   // Rename popup: which note is being renamed, and what is typed
   const [renameTarget, setRenameTarget] = useState<VoiceNote | null>(null);
   const [renameText, setRenameText] = useState("");
+  // Delete popup: which note is waiting for confirmation (null = popup closed)
+const [deleteTarget, setDeleteTarget] = useState<VoiceNote | null>(null);
 
   const activeNote = notes.find((n) => n.id === activeId);
 
@@ -166,24 +168,20 @@ export default function Home() {
   };
 
   // ---------- Delete ----------
-  const confirmDelete = (note: VoiceNote) => {
-    Alert.alert("Delete voice note", `Delete "${note.name}"? This can't be undone.`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          // If this note is loaded in the player, stop it first
-          if (note.id === activeId) {
-            player.pause();
-            setActiveId(null);
-          }
-          await deleteNote(note);
-          setNotes((current) => current.filter((n) => n.id !== note.id));
-        },
-      },
-    ]);
-  };
+// Runs when the user taps "Delete" inside the popup
+const confirmDelete = async () => {
+  if (!deleteTarget) return;
+  const note = deleteTarget;
+  setDeleteTarget(null); // close the popup first
+
+  // If this note is loaded in the player, stop it first
+  if (note.id === activeId) {
+    player.pause();
+    setActiveId(null);
+  }
+  await deleteNote(note);
+  setNotes((current) => current.filter((n) => n.id !== note.id));
+};
 
   // ---------- Feedback and support ----------
   const sendEmail = async (subject: string) => {
@@ -240,7 +238,7 @@ export default function Home() {
             <Ionicons name="pencil" size={20} color={COLORS.text} />
           </Pressable>
           <Pressable
-            onPress={() => confirmDelete(item)}
+            onPress={() => setDeleteTarget(item)}
             hitSlop={8}
             style={styles.actionButton}
           >
@@ -417,6 +415,41 @@ export default function Home() {
           </View>
         </View>
       </Modal>
+      {/* Delete popup: visible only when deleteTarget is set */}
+<Modal
+  visible={deleteTarget !== null}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setDeleteTarget(null)}
+>
+  <View style={styles.modalBackdrop}>
+    <View style={[styles.modalCard, styles.deleteCard]}>
+      <View style={styles.deleteIcon}>
+        <Ionicons name="trash-outline" size={28} color={COLORS.danger} />
+      </View>
+
+      <Text style={styles.modalTitle}>Delete voice note?</Text>
+      <Text style={styles.modalText} numberOfLines={3}>
+        "{deleteTarget?.name}" will be permanently deleted. This can't be undone.
+      </Text>
+
+      <View style={styles.dialogButtons}>
+        <Pressable
+          onPress={() => setDeleteTarget(null)}
+          style={[styles.dialogButton, styles.dialogCancel]}
+        >
+          <Text style={styles.dialogCancelText}>Cancel</Text>
+        </Pressable>
+        <Pressable
+          onPress={confirmDelete}
+          style={[styles.dialogButton, styles.dialogDelete]}
+        >
+          <Text style={styles.dialogDeleteText}>Delete</Text>
+        </Pressable>
+      </View>
+    </View>
+  </View>
+</Modal>
     </SafeAreaView>
   );
 }
@@ -568,4 +601,31 @@ const styles = StyleSheet.create({
   modalButtons: { flexDirection: "row", justifyContent: "flex-end", gap: 24 },
   cancelText: { fontSize: 16, color: COLORS.muted },
   saveText: { fontSize: 16, color: COLORS.primary, fontWeight: "700" },
+  // Delete popup
+deleteCard: { alignItems: "center" },
+deleteIcon: {
+  width: 56,
+  height: 56,
+  borderRadius: 28,
+  backgroundColor: COLORS.primarySoft,
+  alignItems: "center",
+  justifyContent: "center",
+},
+modalText: {
+  fontSize: 15,
+  lineHeight: 22,
+  color: COLORS.muted,
+  textAlign: "center",
+},
+dialogButtons: { flexDirection: "row", gap: 12, alignSelf: "stretch" },
+dialogButton: {
+  flex: 1,
+  paddingVertical: 14,
+  borderRadius: 999,
+  alignItems: "center",
+},
+dialogCancel: { borderWidth: 1.5, borderColor: COLORS.primary },
+dialogCancelText: { color: COLORS.primary, fontSize: 16, fontWeight: "700" },
+dialogDelete: { backgroundColor: COLORS.danger },
+dialogDeleteText: { color: "white", fontSize: 16, fontWeight: "700" },
 });
