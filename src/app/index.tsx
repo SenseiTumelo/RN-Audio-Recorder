@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react"; // NEW: useState
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import {
   AudioModule,
@@ -7,8 +7,8 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from "expo-audio";
+import { addNote, loadNotes, VoiceNote } from "../lib/recordings"; // NEW
 
-// Turns milliseconds into "mm:ss", e.g. 65000 -> "01:05"
 const formatDuration = (ms: number) => {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
@@ -19,6 +19,7 @@ const formatDuration = (ms: number) => {
 export default function Index() {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
+  const [notes, setNotes] = useState<VoiceNote[]>([]); // NEW
 
   useEffect(() => {
     const setup = async () => {
@@ -36,7 +37,6 @@ export default function Index() {
         return;
       }
 
-      // Allow recording (and playback on iPhones even in silent mode)
       await setAudioModeAsync({
         playsInSilentMode: true,
         allowsRecording: true,
@@ -44,6 +44,7 @@ export default function Index() {
     };
 
     setup();
+    loadNotes().then(setNotes); // NEW: load saved notes when the screen opens
   }, []);
 
   const startRecording = async () => {
@@ -52,8 +53,14 @@ export default function Index() {
   };
 
   const stopRecording = async () => {
+    const duration = recorderState.durationMillis; // NEW: grab it BEFORE stopping
     await recorder.stop();
-    console.log("Recorded file:", recorder.uri);
+
+    // NEW: save the file permanently and update the list on screen
+    if (recorder.uri) {
+      const note = await addNote(recorder.uri, duration);
+      setNotes((current) => [note, ...current]);
+    }
   };
 
   const handlePress = () => {
@@ -78,6 +85,9 @@ export default function Index() {
           {recorderState.isRecording ? "Stop" : "Record"}
         </Text>
       </Pressable>
+
+      {/* NEW: a temporary counter so we can test saving */}
+      <Text>{notes.length} saved notes</Text>
     </View>
   );
 }
