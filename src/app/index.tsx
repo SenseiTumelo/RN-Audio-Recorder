@@ -3,14 +3,15 @@ import {
   Alert,
   FlatList,
   Linking,
-  Modal, // NEW
+  Modal,
   Pressable,
   StyleSheet,
   Text,
-  TextInput, // NEW
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar"; // NEW
 import { Ionicons } from "@expo/vector-icons";
 import {
   AudioModule,
@@ -23,15 +24,30 @@ import {
 } from "expo-audio";
 import {
   addNote,
-  deleteNote, // NEW
+  deleteNote,
   getNoteUri,
   loadNotes,
-  renameNote, // NEW
+  renameNote,
   VoiceNote,
 } from "../lib/recordings";
 import { formatDate, formatDuration } from "../lib/format";
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
+
+// NEW: change this to your own email address
+const SUPPORT_EMAIL = "support@example.com";
+
+// NEW: all colours in one place, so the design stays consistent
+const COLORS = {
+  primary: "#4f46e5",
+  primarySoft: "#eef2ff",
+  danger: "#dc2626",
+  background: "#f3f4f6",
+  card: "#ffffff",
+  text: "#111827",
+  muted: "#6b7280",
+  border: "#e5e7eb",
+};
 
 export default function Index() {
   // Recording
@@ -45,18 +61,16 @@ export default function Index() {
   const [notes, setNotes] = useState<VoiceNote[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [speed, setSpeed] = useState(1);
-  const [query, setQuery] = useState(""); // NEW: what is typed in the search box
+  const [query, setQuery] = useState("");
 
-  // NEW: which note is being renamed, and what is typed in the box
   const [renameTarget, setRenameTarget] = useState<VoiceNote | null>(null);
   const [renameText, setRenameText] = useState("");
 
   const activeNote = notes.find((n) => n.id === activeId);
 
-// NEW: the notes whose name contains the search text
-const filteredNotes = notes.filter((note) =>
-  note.name.toLowerCase().includes(query.trim().toLowerCase())
-);
+  const filteredNotes = notes.filter((note) =>
+    note.name.toLowerCase().includes(query.trim().toLowerCase())
+  );
 
   useEffect(() => {
     const setup = async () => {
@@ -141,22 +155,22 @@ const filteredNotes = notes.filter((note) =>
 
   const progress = status.duration > 0 ? status.currentTime / status.duration : 0;
 
-  // ---------- NEW: Rename ----------
+  // ---------- Rename ----------
   const openRename = (note: VoiceNote) => {
     setRenameTarget(note);
-    setRenameText(note.name); // start with the current name in the box
+    setRenameText(note.name);
   };
 
   const saveRename = async () => {
-    const name = renameText.trim(); // remove spaces at the start and end
-    if (!renameTarget || !name) return; // don't allow an empty name
+    const name = renameText.trim();
+    if (!renameTarget || !name) return;
 
     const updated = await renameNote(renameTarget.id, name);
     setNotes(updated);
-    setRenameTarget(null); // closes the popup
+    setRenameTarget(null);
   };
 
-  // ---------- NEW: Delete ----------
+  // ---------- Delete ----------
   const confirmDelete = (note: VoiceNote) => {
     Alert.alert("Delete voice note", `Delete "${note.name}"? This can't be undone.`, [
       { text: "Cancel", style: "cancel" },
@@ -164,7 +178,6 @@ const filteredNotes = notes.filter((note) =>
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          // If this note is loaded in the player, stop it first
           if (note.id === activeId) {
             player.pause();
             setActiveId(null);
@@ -173,6 +186,26 @@ const filteredNotes = notes.filter((note) =>
           setNotes((current) => current.filter((n) => n.id !== note.id));
         },
       },
+    ]);
+  };
+
+  // ---------- NEW: Feedback and support ----------
+  const sendEmail = async (subject: string) => {
+    try {
+      await Linking.openURL(
+        `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`
+      );
+    } catch {
+      // Happens when the phone has no email app set up
+      Alert.alert("No email app found", `You can reach us at ${SUPPORT_EMAIL}.`);
+    }
+  };
+
+  const openHelp = () => {
+    Alert.alert("Feedback & support", "Tell us what you think, or ask for help.", [
+      { text: "Send feedback", onPress: () => sendEmail("Voice Journal feedback") },
+      { text: "Get support", onPress: () => sendEmail("Voice Journal support") },
+      { text: "Cancel", style: "cancel" },
     ]);
   };
 
@@ -188,25 +221,23 @@ const filteredNotes = notes.filter((note) =>
       >
         <Ionicons
           name={isPlaying ? "pause-circle" : "play-circle"}
-          size={40}
-          color="#4f46e5"
+          size={44}
+          color={COLORS.primary}
         />
         <View style={styles.rowText}>
           <Text style={styles.noteName} numberOfLines={1}>
             {item.name}
           </Text>
-          {/* CHANGED: date and duration now share one line */}
           <Text style={styles.noteDate}>
             {formatDate(item.createdAt)} · {formatDuration(item.durationMs)}
           </Text>
         </View>
 
-        {/* NEW: rename and delete buttons */}
         <Pressable onPress={() => openRename(item)} hitSlop={8}>
-          <Ionicons name="pencil" size={20} color="#6b7280" />
+          <Ionicons name="pencil" size={20} color={COLORS.muted} />
         </Pressable>
         <Pressable onPress={() => confirmDelete(item)} hitSlop={8}>
-          <Ionicons name="trash-outline" size={20} color="#dc2626" />
+          <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
         </Pressable>
       </Pressable>
     );
@@ -214,41 +245,63 @@ const filteredNotes = notes.filter((note) =>
 
   return (
     <SafeAreaView style={styles.container}>
-<Text style={styles.title}>Voice Journal</Text>
+      <StatusBar style="dark" />
 
-{/* NEW: search box */}
-<View style={styles.searchBox}>
-  <Ionicons name="search" size={20} color="#6b7280" />
-  <TextInput
-    value={query}
-    onChangeText={setQuery}
-    placeholder="Search voice notes"
-    style={styles.searchInput}
-    autoCorrect={false}
-    returnKeyType="search"
-  />
-  {query.length > 0 && (
-    <Pressable onPress={() => setQuery("")} hitSlop={8}>
-      <Ionicons name="close-circle" size={20} color="#9ca3af" />
-    </Pressable>
-  )}
-</View>
+      {/* CHANGED: header with title, note count and a help button */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Voice Journal</Text>
+          <Text style={styles.subtitle}>
+            {notes.length} {notes.length === 1 ? "voice note" : "voice notes"}
+          </Text>
+        </View>
+        <Pressable onPress={openHelp} hitSlop={8} style={styles.helpButton}>
+          <Ionicons name="help-circle-outline" size={28} color={COLORS.primary} />
+        </Pressable>
+      </View>
 
-<FlatList
-  data={filteredNotes} // CHANGED: was `notes`
-  keyExtractor={(item) => item.id}
-  renderItem={renderNote}
-  contentContainerStyle={styles.list}
-  keyboardShouldPersistTaps="handled" // NEW
-  ListEmptyComponent={
-    <Text style={styles.empty}>
-      {/* CHANGED: a different message when a search finds nothing */}
-      {query.trim()
-        ? "No voice notes match your search."
-        : "No voice notes yet. Tap Record to start."}
-    </Text>
-  }
-/>
+      <View style={styles.searchBox}>
+        <Ionicons name="search" size={20} color={COLORS.muted} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search voice notes"
+          style={styles.searchInput}
+          autoCorrect={false}
+          returnKeyType="search"
+        />
+        {query.length > 0 && (
+          <Pressable onPress={() => setQuery("")} hitSlop={8}>
+            <Ionicons name="close-circle" size={20} color="#9ca3af" />
+          </Pressable>
+        )}
+      </View>
+
+      <FlatList
+        data={filteredNotes}
+        keyExtractor={(item) => item.id}
+        renderItem={renderNote}
+        contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
+        ListEmptyComponent={
+          // CHANGED: a friendlier empty state with an icon
+          <View style={styles.emptyBox}>
+            <Ionicons
+              name={query.trim() ? "search-outline" : "mic-outline"}
+              size={56}
+              color="#c7d2fe"
+            />
+            <Text style={styles.emptyTitle}>
+              {query.trim() ? "No results" : "No voice notes yet"}
+            </Text>
+            <Text style={styles.emptyText}>
+              {query.trim()
+                ? "No voice notes match your search."
+                : "Tap the microphone below to record your first note."}
+            </Text>
+          </View>
+        }
+      />
 
       {activeNote && (
         <View style={styles.player}>
@@ -267,17 +320,17 @@ const filteredNotes = notes.filter((note) =>
 
           <View style={styles.controls}>
             <Pressable onPress={() => skip(-10)}>
-              <Ionicons name="play-back" size={28} color="#111827" />
+              <Ionicons name="play-back" size={28} color={COLORS.text} />
             </Pressable>
             <Pressable onPress={togglePlay}>
               <Ionicons
                 name={status.playing ? "pause-circle" : "play-circle"}
                 size={56}
-                color="#4f46e5"
+                color={COLORS.primary}
               />
             </Pressable>
             <Pressable onPress={() => skip(10)}>
-              <Ionicons name="play-forward" size={28} color="#111827" />
+              <Ionicons name="play-forward" size={28} color={COLORS.text} />
             </Pressable>
             <Pressable onPress={changeSpeed} style={styles.speedButton}>
               <Text style={styles.speedText}>{speed}x</Text>
@@ -286,19 +339,26 @@ const filteredNotes = notes.filter((note) =>
         </View>
       )}
 
+      {/* CHANGED: round microphone button with a status label */}
       <View style={styles.recorder}>
-        <Text style={styles.timer}>{formatDuration(recorderState.durationMillis)}</Text>
+        <Text style={[styles.timer, recorderState.isRecording && styles.timerRecording]}>
+          {formatDuration(recorderState.durationMillis)}
+        </Text>
+        <Text style={styles.recorderLabel}>
+          {recorderState.isRecording ? "Recording… tap to stop" : "Tap to record"}
+        </Text>
         <Pressable
           onPress={handleRecordPress}
-          style={[styles.button, recorderState.isRecording && styles.buttonRecording]}
+          style={[styles.recordButton, recorderState.isRecording && styles.recordButtonActive]}
         >
-          <Text style={styles.buttonText}>
-            {recorderState.isRecording ? "Stop" : "Record"}
-          </Text>
+          <Ionicons
+            name={recorderState.isRecording ? "stop" : "mic"}
+            size={32}
+            color="white"
+          />
         </Pressable>
       </View>
 
-      {/* NEW: the rename popup. It is visible only when renameTarget is set. */}
       <Modal
         visible={renameTarget !== null}
         transparent
@@ -334,68 +394,115 @@ const filteredNotes = notes.filter((note) =>
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f9fafb" },
-  title: { fontSize: 28, fontWeight: "bold", padding: 20 },
-  list: { paddingHorizontal: 16, gap: 8, flexGrow: 1 },
-  empty: { textAlign: "center", color: "#6b7280", marginTop: 40 },
+  container: { flex: 1, backgroundColor: COLORS.background },
+
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+  title: { fontSize: 28, fontWeight: "800", color: COLORS.text },
+  subtitle: { fontSize: 14, color: COLORS.muted, marginTop: 2 },
+  helpButton: {
+    backgroundColor: COLORS.primarySoft,
+    borderRadius: 999,
+    padding: 6,
+  },
+
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: COLORS.card,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  searchInput: { flex: 1, paddingVertical: 12, fontSize: 16 },
+
+  list: { paddingHorizontal: 16, paddingBottom: 12, gap: 10, flexGrow: 1 },
+
+  emptyBox: { alignItems: "center", marginTop: 60, paddingHorizontal: 32, gap: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text },
+  emptyText: { textAlign: "center", color: COLORS.muted, fontSize: 15 },
 
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: "white",
+    backgroundColor: COLORS.card,
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "transparent",
+    elevation: 2, // Android shadow
+    shadowColor: "#000", // iOS shadow
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
-  rowActive: { borderWidth: 2, borderColor: "#4f46e5" },
+  rowActive: { borderColor: COLORS.primary },
   rowText: { flex: 1 },
-  noteName: { fontSize: 16, fontWeight: "600" },
-  noteDate: { fontSize: 13, color: "#6b7280", marginTop: 2 },
+  noteName: { fontSize: 16, fontWeight: "600", color: COLORS.text },
+  noteDate: { fontSize: 13, color: COLORS.muted, marginTop: 2 },
 
   player: {
-    backgroundColor: "white",
+    backgroundColor: COLORS.card,
     padding: 16,
     borderTopWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: COLORS.border,
     gap: 8,
   },
-  playerName: { fontWeight: "600", fontSize: 15 },
-  progressTrack: { height: 6, backgroundColor: "#e5e7eb", borderRadius: 3 },
-  progressFill: { height: 6, backgroundColor: "#4f46e5", borderRadius: 3 },
+  playerName: { fontWeight: "600", fontSize: 15, color: COLORS.text },
+  progressTrack: { height: 6, backgroundColor: COLORS.border, borderRadius: 3 },
+  progressFill: { height: 6, backgroundColor: COLORS.primary, borderRadius: 3 },
   timeRow: { flexDirection: "row", justifyContent: "space-between" },
-  time: { fontSize: 12, color: "#6b7280", fontVariant: ["tabular-nums"] },
+  time: { fontSize: 12, color: COLORS.muted, fontVariant: ["tabular-nums"] },
   controls: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
   },
   speedButton: {
-    backgroundColor: "#eef2ff",
+    backgroundColor: COLORS.primarySoft,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 999,
   },
-  speedText: { color: "#4f46e5", fontWeight: "700" },
+  speedText: { color: COLORS.primary, fontWeight: "700" },
 
   recorder: {
     alignItems: "center",
-    gap: 12,
-    padding: 16,
-    backgroundColor: "white",
+    gap: 4,
+    paddingVertical: 16,
+    backgroundColor: COLORS.card,
     borderTopWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: COLORS.border,
   },
-  timer: { fontSize: 36, fontVariant: ["tabular-nums"] },
-  button: {
-    backgroundColor: "#4f46e5",
-    paddingVertical: 14,
-    paddingHorizontal: 40,
-    borderRadius: 999,
+  timer: { fontSize: 32, fontVariant: ["tabular-nums"], color: COLORS.text },
+  timerRecording: { color: COLORS.danger },
+  recorderLabel: { fontSize: 13, color: COLORS.muted, marginBottom: 8 },
+  recordButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 4,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
-  buttonRecording: { backgroundColor: "#dc2626" },
-  buttonText: { color: "white", fontSize: 18, fontWeight: "600" },
+  recordButtonActive: { backgroundColor: COLORS.danger, shadowColor: COLORS.danger },
 
-  // NEW: rename popup styles
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -403,12 +510,12 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalCard: {
-    backgroundColor: "white",
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 20,
     gap: 16,
   },
-  modalTitle: { fontSize: 18, fontWeight: "700" },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text },
   input: {
     borderWidth: 1,
     borderColor: "#d1d5db",
@@ -416,20 +523,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
   },
-  searchBox: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 8,
-  backgroundColor: "white",
-  marginHorizontal: 16,
-  marginBottom: 12,
-  paddingHorizontal: 12,
-  borderRadius: 12,
-  borderWidth: 1,
-  borderColor: "#e5e7eb",
-},
-searchInput: { flex: 1, paddingVertical: 12, fontSize: 16 },
   modalButtons: { flexDirection: "row", justifyContent: "flex-end", gap: 24 },
-  cancelText: { fontSize: 16, color: "#6b7280" },
-  saveText: { fontSize: 16, color: "#4f46e5", fontWeight: "700" },
+  cancelText: { fontSize: 16, color: COLORS.muted },
+  saveText: { fontSize: 16, color: COLORS.primary, fontWeight: "700" },
 });
