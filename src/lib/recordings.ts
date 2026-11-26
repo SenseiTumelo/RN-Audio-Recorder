@@ -56,3 +56,27 @@ export async function addNote(
 
   return note;
 }
+
+// Changes the name of one note and returns the updated list
+export async function renameNote(
+  id: string,
+  name: string
+): Promise<VoiceNote[]> {
+  const notes = await loadNotes();
+  const updated = notes.map((note) =>
+    note.id === id ? { ...note, name } : note
+  );
+  await saveNotes(updated);
+  return updated;
+}
+
+// Deletes the audio file AND removes the note from the saved list
+export async function deleteNote(note: VoiceNote): Promise<void> {
+  const file = new File(getRecordingsDir(), note.fileName);
+  if (file.exists) {
+    file.delete();
+  }
+
+  const notes = await loadNotes();
+  await saveNotes(notes.filter((n) => n.id !== note.id));
+}
