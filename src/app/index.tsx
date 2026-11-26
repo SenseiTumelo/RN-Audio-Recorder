@@ -45,12 +45,18 @@ export default function Index() {
   const [notes, setNotes] = useState<VoiceNote[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [speed, setSpeed] = useState(1);
+  const [query, setQuery] = useState(""); // NEW: what is typed in the search box
 
   // NEW: which note is being renamed, and what is typed in the box
   const [renameTarget, setRenameTarget] = useState<VoiceNote | null>(null);
   const [renameText, setRenameText] = useState("");
 
   const activeNote = notes.find((n) => n.id === activeId);
+
+// NEW: the notes whose name contains the search text
+const filteredNotes = notes.filter((note) =>
+  note.name.toLowerCase().includes(query.trim().toLowerCase())
+);
 
   useEffect(() => {
     const setup = async () => {
@@ -208,17 +214,41 @@ export default function Index() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Voice Journal</Text>
+<Text style={styles.title}>Voice Journal</Text>
 
-      <FlatList
-        data={notes}
-        keyExtractor={(item) => item.id}
-        renderItem={renderNote}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <Text style={styles.empty}>No voice notes yet. Tap Record to start.</Text>
-        }
-      />
+{/* NEW: search box */}
+<View style={styles.searchBox}>
+  <Ionicons name="search" size={20} color="#6b7280" />
+  <TextInput
+    value={query}
+    onChangeText={setQuery}
+    placeholder="Search voice notes"
+    style={styles.searchInput}
+    autoCorrect={false}
+    returnKeyType="search"
+  />
+  {query.length > 0 && (
+    <Pressable onPress={() => setQuery("")} hitSlop={8}>
+      <Ionicons name="close-circle" size={20} color="#9ca3af" />
+    </Pressable>
+  )}
+</View>
+
+<FlatList
+  data={filteredNotes} // CHANGED: was `notes`
+  keyExtractor={(item) => item.id}
+  renderItem={renderNote}
+  contentContainerStyle={styles.list}
+  keyboardShouldPersistTaps="handled" // NEW
+  ListEmptyComponent={
+    <Text style={styles.empty}>
+      {/* CHANGED: a different message when a search finds nothing */}
+      {query.trim()
+        ? "No voice notes match your search."
+        : "No voice notes yet. Tap Record to start."}
+    </Text>
+  }
+/>
 
       {activeNote && (
         <View style={styles.player}>
@@ -386,6 +416,19 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
   },
+  searchBox: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 8,
+  backgroundColor: "white",
+  marginHorizontal: 16,
+  marginBottom: 12,
+  paddingHorizontal: 12,
+  borderRadius: 12,
+  borderWidth: 1,
+  borderColor: "#e5e7eb",
+},
+searchInput: { flex: 1, paddingVertical: 12, fontSize: 16 },
   modalButtons: { flexDirection: "row", justifyContent: "flex-end", gap: 24 },
   cancelText: { fontSize: 16, color: "#6b7280" },
   saveText: { fontSize: 16, color: "#4f46e5", fontWeight: "700" },
