@@ -45,7 +45,8 @@
         {
           "microphonePermission": "Allow Voice Journal to access your microphone to record voice notes."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true
