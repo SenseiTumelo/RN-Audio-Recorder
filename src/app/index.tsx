@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { COLORS } from "../lib/theme";
 import {
   Alert,
   FlatList,
@@ -37,17 +38,7 @@ const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 // NEW: change this to your own email address
 const SUPPORT_EMAIL = "support@example.com";
 
-// NEW: all colours in one place, so the design stays consistent
-const COLORS = {
-  primary: "#4f46e5",
-  primarySoft: "#eef2ff",
-  danger: "#dc2626",
-  background: "#f3f4f6",
-  card: "#ffffff",
-  text: "#111827",
-  muted: "#6b7280",
-  border: "#e5e7eb",
-};
+
 
 export default function Index() {
   // Recording
@@ -272,7 +263,7 @@ export default function Index() {
         />
         {query.length > 0 && (
           <Pressable onPress={() => setQuery("")} hitSlop={8}>
-            <Ionicons name="close-circle" size={20} color="#9ca3af" />
+            <Ionicons name="close-circle" size={20} color={COLORS.muted} />
           </Pressable>
         )}
       </View>
@@ -289,7 +280,7 @@ export default function Index() {
             <Ionicons
               name={query.trim() ? "search-outline" : "mic-outline"}
               size={56}
-              color="#c7d2fe"
+              color={COLORS.faint}
             />
             <Text style={styles.emptyTitle}>
               {query.trim() ? "No results" : "No voice notes yet"}
@@ -440,7 +431,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: "transparent",
+    borderColor: COLORS.border,
     elevation: 2, // Android shadow
     shadowColor: "#000", // iOS shadow
     shadowOpacity: 0.06,
@@ -518,7 +509,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text },
   input: {
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: COLORS.border,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
