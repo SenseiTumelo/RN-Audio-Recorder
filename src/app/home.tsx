@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import { COLORS } from "../lib/theme";
-import { useRouter } from "expo-router";
 import {
   Alert,
   FlatList,
@@ -13,8 +11,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar"; // NEW
+import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import {
   AudioModule,
   RecordingPresets,
@@ -33,16 +32,16 @@ import {
   VoiceNote,
 } from "../lib/recordings";
 import { formatDate, formatDuration } from "../lib/format";
+import { COLORS } from "../lib/theme";
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 
-// NEW: change this to your own email address
+// Change this to your own email address
 const SUPPORT_EMAIL = "support@example.com";
 
+export default function Home() {
+  const router = useRouter();
 
-
-export default function Index() {
- const router = useRouter();
   // Recording
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
@@ -56,11 +55,13 @@ export default function Index() {
   const [speed, setSpeed] = useState(1);
   const [query, setQuery] = useState("");
 
+  // Rename popup: which note is being renamed, and what is typed
   const [renameTarget, setRenameTarget] = useState<VoiceNote | null>(null);
   const [renameText, setRenameText] = useState("");
 
   const activeNote = notes.find((n) => n.id === activeId);
 
+  // The notes whose name contains the search text
   const filteredNotes = notes.filter((note) =>
     note.name.toLowerCase().includes(query.trim().toLowerCase())
   );
@@ -87,7 +88,7 @@ export default function Index() {
 
   // ---------- Recording ----------
   const startRecording = async () => {
-    player.pause();
+    player.pause(); // never play and record at the same time
     await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
     await recorder.prepareToRecordAsync();
     recorder.record();
@@ -118,6 +119,7 @@ export default function Index() {
       player.pause();
       return;
     }
+    // If the note already reached the end, start again from 0
     if (status.duration > 0 && status.currentTime >= status.duration - 0.1) {
       await player.seekTo(0);
     }
@@ -126,7 +128,7 @@ export default function Index() {
 
   const selectNote = (note: VoiceNote) => {
     if (note.id === activeId) {
-      togglePlay();
+      togglePlay(); // tapping the same note pauses / resumes
       return;
     }
     setActiveId(note.id);
@@ -156,11 +158,11 @@ export default function Index() {
 
   const saveRename = async () => {
     const name = renameText.trim();
-    if (!renameTarget || !name) return;
+    if (!renameTarget || !name) return; // don't allow an empty name
 
     const updated = await renameNote(renameTarget.id, name);
     setNotes(updated);
-    setRenameTarget(null);
+    setRenameTarget(null); // closes the popup
   };
 
   // ---------- Delete ----------
@@ -171,6 +173,7 @@ export default function Index() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
+          // If this note is loaded in the player, stop it first
           if (note.id === activeId) {
             player.pause();
             setActiveId(null);
@@ -182,7 +185,7 @@ export default function Index() {
     ]);
   };
 
-  // ---------- NEW: Feedback and support ----------
+  // ---------- Feedback and support ----------
   const sendEmail = async (subject: string) => {
     try {
       await Linking.openURL(
@@ -217,21 +220,33 @@ export default function Index() {
           size={44}
           color={COLORS.primary}
         />
+
         <View style={styles.rowText}>
           <Text style={styles.noteName} numberOfLines={1}>
             {item.name}
           </Text>
-          <Text style={styles.noteDate}>
+          <Text style={styles.noteDate} numberOfLines={1}>
             {formatDate(item.createdAt)} · {formatDuration(item.durationMs)}
           </Text>
         </View>
 
-        <Pressable onPress={() => openRename(item)} hitSlop={8}>
-          <Ionicons name="pencil" size={20} color={COLORS.muted} />
-        </Pressable>
-        <Pressable onPress={() => confirmDelete(item)} hitSlop={8}>
-          <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-        </Pressable>
+        {/* Rename and delete buttons */}
+        <View style={styles.actions}>
+          <Pressable
+            onPress={() => openRename(item)}
+            hitSlop={8}
+            style={styles.actionButton}
+          >
+            <Ionicons name="pencil" size={20} color={COLORS.text} />
+          </Pressable>
+          <Pressable
+            onPress={() => confirmDelete(item)}
+            hitSlop={8}
+            style={styles.actionButton}
+          >
+            <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
+          </Pressable>
+        </View>
       </Pressable>
     );
   };
@@ -240,20 +255,34 @@ export default function Index() {
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* CHANGED: header with title, note count and a help button */}
-     <View style={styles.headerButtons}>
-  <Pressable
-    onPress={() => router.push("/welcome")}
-    hitSlop={8}
-    style={styles.helpButton}
-  >
-    <Ionicons name="information-circle-outline" size={28} color={COLORS.primary} />
-  </Pressable>
-  <Pressable onPress={openHelp} hitSlop={8} style={styles.helpButton}>
-    <Ionicons name="help-circle-outline" size={28} color={COLORS.primary} />
-  </Pressable>
-</View>
+      {/* Header: title, note count, and the two help buttons */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Voice Journal</Text>
+          <Text style={styles.subtitle}>
+            {notes.length} {notes.length === 1 ? "voice note" : "voice notes"}
+          </Text>
+        </View>
 
+        <View style={styles.headerButtons}>
+          <Pressable
+            onPress={() => router.push("/welcome")}
+            hitSlop={8}
+            style={styles.helpButton}
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={28}
+              color={COLORS.primary}
+            />
+          </Pressable>
+          <Pressable onPress={openHelp} hitSlop={8} style={styles.helpButton}>
+            <Ionicons name="help-circle-outline" size={28} color={COLORS.primary} />
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Search box */}
       <View style={styles.searchBox}>
         <Ionicons name="search" size={20} color={COLORS.muted} />
         <TextInput
@@ -271,6 +300,7 @@ export default function Index() {
         )}
       </View>
 
+      {/* The list of notes */}
       <FlatList
         data={filteredNotes}
         keyExtractor={(item) => item.id}
@@ -278,7 +308,6 @@ export default function Index() {
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
-          // CHANGED: a friendlier empty state with an icon
           <View style={styles.emptyBox}>
             <Ionicons
               name={query.trim() ? "search-outline" : "mic-outline"}
@@ -297,6 +326,7 @@ export default function Index() {
         }
       />
 
+      {/* Player bar: only shows once a note has been selected */}
       {activeNote && (
         <View style={styles.player}>
           <Text style={styles.playerName} numberOfLines={1}>
@@ -333,7 +363,7 @@ export default function Index() {
         </View>
       )}
 
-      {/* CHANGED: round microphone button with a status label */}
+      {/* Recorder */}
       <View style={styles.recorder}>
         <Text style={[styles.timer, recorderState.isRecording && styles.timerRecording]}>
           {formatDuration(recorderState.durationMillis)}
@@ -343,7 +373,10 @@ export default function Index() {
         </Text>
         <Pressable
           onPress={handleRecordPress}
-          style={[styles.recordButton, recorderState.isRecording && styles.recordButtonActive]}
+          style={[
+            styles.recordButton,
+            recorderState.isRecording && styles.recordButtonActive,
+          ]}
         >
           <Ionicons
             name={recorderState.isRecording ? "stop" : "mic"}
@@ -353,6 +386,7 @@ export default function Index() {
         </Pressable>
       </View>
 
+      {/* Rename popup: visible only when renameTarget is set */}
       <Modal
         visible={renameTarget !== null}
         transparent
@@ -389,7 +423,8 @@ export default function Index() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-headerButtons: { flexDirection: "row", gap: 8 },
+
+  // Header
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -400,12 +435,14 @@ headerButtons: { flexDirection: "row", gap: 8 },
   },
   title: { fontSize: 28, fontWeight: "800", color: COLORS.text },
   subtitle: { fontSize: 14, color: COLORS.muted, marginTop: 2 },
+  headerButtons: { flexDirection: "row", gap: 8 },
   helpButton: {
     backgroundColor: COLORS.primarySoft,
     borderRadius: 999,
     padding: 6,
   },
 
+  // Search
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -420,6 +457,7 @@ headerButtons: { flexDirection: "row", gap: 8 },
   },
   searchInput: { flex: 1, paddingVertical: 12, fontSize: 16 },
 
+  // List
   list: { paddingHorizontal: 16, paddingBottom: 12, gap: 10, flexGrow: 1 },
 
   emptyBox: { alignItems: "center", marginTop: 60, paddingHorizontal: 32, gap: 8 },
@@ -442,10 +480,18 @@ headerButtons: { flexDirection: "row", gap: 8 },
     shadowOffset: { width: 0, height: 2 },
   },
   rowActive: { borderColor: COLORS.primary },
-  rowText: { flex: 1 },
+  rowText: { flex: 1, minWidth: 0 },
   noteName: { fontSize: 16, fontWeight: "600", color: COLORS.text },
   noteDate: { fontSize: 13, color: COLORS.muted, marginTop: 2 },
 
+  actions: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0 },
+  actionButton: {
+    padding: 8,
+    backgroundColor: COLORS.primarySoft,
+    borderRadius: 999,
+  },
+
+  // Player bar
   player: {
     backgroundColor: COLORS.card,
     padding: 16,
@@ -471,6 +517,7 @@ headerButtons: { flexDirection: "row", gap: 8 },
   },
   speedText: { color: COLORS.primary, fontWeight: "700" },
 
+  // Recorder
   recorder: {
     alignItems: "center",
     gap: 4,
@@ -497,6 +544,7 @@ headerButtons: { flexDirection: "row", gap: 8 },
   },
   recordButtonActive: { backgroundColor: COLORS.danger, shadowColor: COLORS.danger },
 
+  // Rename popup
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
