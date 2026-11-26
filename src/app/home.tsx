@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react"; 
+
+import SoundBars, { compressLevels, meterToLevel } from "../lib/SoundBar";
 import {
   Alert,
   FlatList,
@@ -36,15 +38,25 @@ import { COLORS } from "../lib/theme";
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 
-// Change this to your own email address
-const SUPPORT_EMAIL = "support@example.com";
+
+const SUPPORT_EMAIL = "tmotjopi@gmail.com";
+const BAR_COUNT = 32; // bars shown while recording
+const SAVED_BAR_COUNT = 48; // bars saved with each note
+const IDLE_LEVELS = Array(BAR_COUNT).fill(0.08); // flat bars when not recording
+const FLAT_LEVELS = Array(SAVED_BAR_COUNT).fill(0.3); // for notes with no saved waveform
+
+// Same quality as before, but with loudness metering switched on
+const RECORDING_OPTIONS = {
+  ...RecordingPresets.HIGH_QUALITY,
+  isMeteringEnabled: true,
+};
 
 export default function Home() {
   const router = useRouter();
 
   // Recording
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const recorderState = useAudioRecorderState(recorder);
+const recorder = useAudioRecorder(RECORDING_OPTIONS);
+const recorderState = useAudioRecorderState(recorder, 100);
 
   // Playback: ONE player shared by every note in the list
   const player = useAudioPlayer(null);
@@ -55,6 +67,9 @@ export default function Home() {
   const [speed, setSpeed] = useState(1);
   const [query, setQuery] = useState("");
 
+  const [liveLevels, setLiveLevels] = useState<number[]>(IDLE_LEVELS); // bars on screen
+const allLevels = useRef<number[]>([]); // every reading, kept to save with the note
+const [barsWidth, setBarsWidth] = useState(0); // width of the player bars (for tap-to-seek)
   // Rename popup: which note is being renamed, and what is typed
   const [renameTarget, setRenameTarget] = useState<VoiceNote | null>(null);
   const [renameText, setRenameText] = useState("");
@@ -88,25 +103,37 @@ const [deleteTarget, setDeleteTarget] = useState<VoiceNote | null>(null);
     loadNotes().then(setNotes);
   }, []);
 
+  // While recording: take a loudness reading every time the recorder updates
+useEffect(() => {
+  if (!recorderState.isRecording) return;
+
+  const level = meterToLevel(recorderState.metering);
+  allLevels.current.push(level); // keep it for saving
+  setLiveLevels((prev) => [...prev.slice(1), level]); // scroll the bars left
+}, [recorderState.durationMillis]);
+
   // ---------- Recording ----------
   const startRecording = async () => {
+      allLevels.current = []; // 
+  setLiveLevels(IDLE_LEVELS); 
     player.pause(); // never play and record at the same time
     await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
     await recorder.prepareToRecordAsync();
     recorder.record();
   };
 
-  const stopRecording = async () => {
-    const duration = recorderState.durationMillis;
-    await recorder.stop();
-    await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+ const stopRecording = async () => {
+  const duration = recorderState.durationMillis;
+  await recorder.stop();
+  await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
 
-    if (recorder.uri) {
-      const note = await addNote(recorder.uri, duration);
-      setNotes((current) => [note, ...current]);
-    }
-  };
-
+  if (recorder.uri) {
+    const waveform = compressLevels(allLevels.current, SAVED_BAR_COUNT);
+    const note = await addNote(recorder.uri, duration, waveform); //
+    setNotes((current) => [note, ...current]);
+  }
+  setLiveLevels(IDLE_LEVELS); // NEW
+};
   const handleRecordPress = () => {
     if (recorderState.isRecording) {
       stopRecording();
@@ -143,7 +170,12 @@ const [deleteTarget, setDeleteTarget] = useState<VoiceNote | null>(null);
     const target = status.currentTime + seconds;
     player.seekTo(Math.max(0, Math.min(status.duration, target)));
   };
-
+// Jump to the spot the user tapped on the bars
+const seekFromTouch = (x: number) => {
+  if (barsWidth === 0 || status.duration === 0) return;
+  const fraction = Math.max(0, Math.min(1, x / barsWidth)); // 0 = start, 1 = end
+  player.seekTo(fraction * status.duration);
+};
   const changeSpeed = () => {
     const next = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
     setSpeed(next);
@@ -331,9 +363,18 @@ const confirmDelete = async () => {
             {activeNote.name}
           </Text>
 
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-          </View>
+<Pressable
+  onLayout={(e) => setBarsWidth(e.nativeEvent.layout.width)}
+  onPress={(e) => seekFromTouch(e.nativeEvent.locationX)}
+>
+  <View pointerEvents="none">
+    <SoundBars
+      levels={activeNote.waveform ?? FLAT_LEVELS}
+      progress={progress}
+      height={44}
+    />
+  </View>
+</Pressable>
 
           <View style={styles.timeRow}>
             <Text style={styles.time}>{formatDuration(status.currentTime * 1000)}</Text>
@@ -363,6 +404,13 @@ const confirmDelete = async () => {
 
       {/* Recorder */}
       <View style={styles.recorder}>
+          <View style={styles.liveBars}>
+    <SoundBars
+      levels={recorderState.isRecording ? liveLevels : IDLE_LEVELS}
+      height={40}
+      activeColor={COLORS.danger}
+    />
+  </View>
         <Text style={[styles.timer, recorderState.isRecording && styles.timerRecording]}>
           {formatDuration(recorderState.durationMillis)}
         </Text>
@@ -474,7 +522,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     padding: 6,
   },
-
+liveBars: { alignSelf: "stretch", paddingHorizontal: 24, marginBottom: 8 },
   // Search
   searchBox: {
     flexDirection: "row",
