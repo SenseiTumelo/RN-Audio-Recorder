@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { COLORS } from "../lib/theme";
+import { useRouter } from "expo-router";
 import {
   Alert,
   FlatList,
@@ -41,6 +42,7 @@ const SUPPORT_EMAIL = "support@example.com";
 
 
 export default function Index() {
+ const router = useRouter();
   // Recording
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
@@ -239,17 +241,18 @@ export default function Index() {
       <StatusBar style="dark" />
 
       {/* CHANGED: header with title, note count and a help button */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Voice Journal</Text>
-          <Text style={styles.subtitle}>
-            {notes.length} {notes.length === 1 ? "voice note" : "voice notes"}
-          </Text>
-        </View>
-        <Pressable onPress={openHelp} hitSlop={8} style={styles.helpButton}>
-          <Ionicons name="help-circle-outline" size={28} color={COLORS.primary} />
-        </Pressable>
-      </View>
+     <View style={styles.headerButtons}>
+  <Pressable
+    onPress={() => router.push("/welcome")}
+    hitSlop={8}
+    style={styles.helpButton}
+  >
+    <Ionicons name="information-circle-outline" size={28} color={COLORS.primary} />
+  </Pressable>
+  <Pressable onPress={openHelp} hitSlop={8} style={styles.helpButton}>
+    <Ionicons name="help-circle-outline" size={28} color={COLORS.primary} />
+  </Pressable>
+</View>
 
       <View style={styles.searchBox}>
         <Ionicons name="search" size={20} color={COLORS.muted} />
@@ -386,7 +389,7 @@ export default function Index() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-
+headerButtons: { flexDirection: "row", gap: 8 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
