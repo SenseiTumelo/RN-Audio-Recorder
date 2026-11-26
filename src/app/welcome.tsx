@@ -5,6 +5,7 @@ import {
   NativeSyntheticEvent,
   Pressable,
   StyleSheet,
+  Image,
   Text,
   View,
   useWindowDimensions,
@@ -21,6 +22,7 @@ type Slide = {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   text: string;
+  showLogo?: boolean;
 };
 
 const SLIDES: Slide[] = [
@@ -29,6 +31,7 @@ const SLIDES: Slide[] = [
     icon: "mic",
     title: "Welcome to Voice Journal",
     text: "Your personal space to capture thoughts, ideas and memories with your voice.",
+    showLogo: true,
   },
   {
     id: "record",
@@ -102,15 +105,23 @@ export default function Welcome() {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onScrollEnd}
-        renderItem={({ item }) => (
-          <View style={[styles.slide, { width }]}>
-            <View style={styles.iconCircle}>
-              <Ionicons name={item.icon} size={64} color="white" />
-            </View>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.text}>{item.text}</Text>
-          </View>
-        )}
+renderItem={({ item }) => (
+  <View style={[styles.slide, { width }]}>
+    {item.showLogo ? (
+      <Image
+        source={require("../../assets/logo.png")}
+        style={styles.logo}
+        resizeMode="contain"
+      />
+    ) : (
+      <View style={styles.iconCircle}>
+        <Ionicons name={item.icon} size={64} color="white" />
+      </View>
+    )}
+    <Text style={styles.title}>{item.title}</Text>
+    <Text style={styles.text}>{item.text}</Text>
+  </View>
+)}
       />
 
       {/* Dots show which slide you are on */}
@@ -153,6 +164,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 24,
   },
+  logo: { width: 160, height: 160, marginBottom: 24 },
   title: {
     fontSize: 28,
     fontWeight: "800",
