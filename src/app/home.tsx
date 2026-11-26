@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"; 
+import { TextInput, Text} from "@/lib/AppText";
 
 import SoundBars, { compressLevels, meterToLevel } from "../lib/SoundBar";
 import {
@@ -8,8 +9,6 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";

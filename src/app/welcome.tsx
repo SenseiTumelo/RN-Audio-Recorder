@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Text } from "@/lib/AppText";
 import {
   FlatList,
   NativeScrollEvent,
@@ -6,7 +7,6 @@ import {
   Pressable,
   StyleSheet,
   Image,
-  Text,
   View,
   useWindowDimensions,
 } from "react-native";
